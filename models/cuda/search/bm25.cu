@@ -127,7 +127,7 @@ void bm25_score(
 
     // Create a cuda stream for efficient concurrent execution of the kernel
     cudaStream_t stream;
-    CUDA_ASSERT(cudaStreamCreate(&stream) == cudaSuccess);
+    CUDA_ASSERT(cudaStreamCreate(&stream));
 
     // Launch the kernel with following parameters:
     //  - num_blocks: number of blocks (one block per query)
@@ -150,9 +150,12 @@ void bm25_score(
         num_documents
     );
 
+    // Check for kernel launch errors
+    CUDA_ASSERT(cudaGetLastError());
+
     // Synchronize the stream to guarantee that all operations are completed correctly before returning
-    CUDA_ASSERT(cudaStreamSynchronize(stream) == cudaSuccess);
-    CUDA_ASSERT(cudaStreamDestroy(stream) == cudaSuccess);
+    CUDA_ASSERT(cudaStreamSynchronize(stream));
+    CUDA_ASSERT(cudaStreamDestroy(stream));
 }
 
 int main() {
@@ -262,7 +265,7 @@ int main() {
     );
 
     // Device to host copy
-    CUDA_ASSERT(cudaMemcpy(h_scores.data(), thrust::raw_pointer_cast(d_scores.data()), num_queries * sizeof(float), cudaMemcpyDeviceToHost) == cudaSuccess);
+    CUDA_ASSERT(cudaMemcpy(h_scores.data(), thrust::raw_pointer_cast(d_scores.data()), num_queries * sizeof(float), cudaMemcpyDeviceToHost));
 
     // Compute expected scores using CPU implementation
     thrust::host_vector<float> expected_scores(num_queries, 0.0f);
@@ -337,7 +340,7 @@ int main() {
                 num_queries,
                 num_documents
             );
-            CUDA_ASSERT(cudaStreamSynchronize(0) == cudaSuccess);
+            CUDA_ASSERT(cudaStreamSynchronize(0));
         }
         auto end_gpu = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> gpu_duration = end_gpu - start_gpu;
