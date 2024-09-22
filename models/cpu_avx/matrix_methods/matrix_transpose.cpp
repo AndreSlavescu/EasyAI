@@ -195,6 +195,11 @@ By processing tiles in column-major, cache lines can be more effecitvely used, w
 
 Cache access pattern:
 0 -> 1 -> 4 -> 5 -> 2 -> 3 -> 6 -> 7 -> 8 -> 9 -> 12 -> 13 -> 10 -> 11 -> 14 -> 15
+
+Tested on i7-6800k @ 3.40GHz
+    kernel1 speedup against baseline: ~5.9x
+    kernel2 speedup against baseline: ~6.2x
+    kernel3 speedup against baseline: ~6.6x
 */
 void transpose_nxn_avx2_256bit_kernel3(
     const float* __restrict__ src,
