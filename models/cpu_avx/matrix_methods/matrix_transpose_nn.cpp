@@ -20,7 +20,7 @@ void transpose_nxn_baseline(
     }
 }
 
-void transpose_nxn_avx2_128bit(
+void transpose_nxn_avx_128bit(
     float* src, 
     float* dst, 
     int n
@@ -284,7 +284,7 @@ int main() {
     for (const int n : test_sizes) {
         std::vector<float> src(n * n);
         std::vector<float> dst_standard(n * n);
-        std::vector<float> dst_avx2_128bit(n * n);
+        std::vector<float> dst_avx_128bit(n * n);
         std::vector<float> dst_avx2_256bit_kernel1(n * n);
         std::vector<float> dst_avx2_256bit_kernel2(n * n);
         std::vector<float> dst_avx2_256bit_kernel3(n * n);
@@ -297,8 +297,8 @@ int main() {
             utils::compare_performance(
                 "Standard transpose", 
                 [&](){ transpose_nxn_baseline(src.data(), dst_standard.data(), n); },
-                "AVX2 128-bit transpose", 
-                [&](){ transpose_nxn_avx2_128bit(src.data(), dst_avx2_128bit.data(), n); },
+                "AVX 128-bit transpose", 
+                [&](){ transpose_nxn_avx_128bit(src.data(), dst_avx_128bit.data(), n); },
                 100
             );
 
@@ -327,13 +327,13 @@ int main() {
             );
         }
 
-        bool is_correct_128bit = utils::check_correctness(dst_standard, dst_avx2_128bit);
+        bool is_correct_128bit = utils::check_correctness(dst_standard, dst_avx_128bit);
         bool is_correct_256bit_kernel1 = utils::check_correctness(dst_standard, dst_avx2_256bit_kernel1);
         bool is_correct_256bit_kernel2 = utils::check_correctness(dst_standard, dst_avx2_256bit_kernel2);
         bool is_correct_256bit_kernel3 = utils::check_correctness(dst_standard, dst_avx2_256bit_kernel3);
 
         if (DEBUG) {
-            std::cout << "Correctness check (128-bit AVX2): " << (is_correct_128bit ? "PASSED" : "FAILED") << std::endl;
+            std::cout << "Correctness check (128-bit AVX): " << (is_correct_128bit ? "PASSED" : "FAILED") << std::endl;
             std::cout << "Correctness check (256-bit AVX2 kernel1): " << (is_correct_256bit_kernel1 ? "PASSED" : "FAILED") << std::endl;
             std::cout << "Correctness check (256-bit AVX2 kernel2): " << (is_correct_256bit_kernel2 ? "PASSED" : "FAILED") << std::endl;
             std::cout << "Correctness check (256-bit AVX2 kernel3): " << (is_correct_256bit_kernel3 ? "PASSED" : "FAILED") << std::endl;

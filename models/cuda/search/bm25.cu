@@ -23,7 +23,7 @@
 */
 
 #define DEBUG 0
-#define PROFILING 0
+#define PROFILING 1
 
 void bm25_score_cpu(
     const float *query_weights,
