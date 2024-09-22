@@ -13,7 +13,7 @@ fi
 for CU_FILE in "${CU_FILES[@]}"; do
     KERNEL_NAME=$(basename "$CU_FILE" .cu)
     echo "Compiling CUDA kernel: $KERNEL_NAME"
-    nvcc -std=c++17 -O3 -I"$CU_DIR" -o "$OUTPUT_EXEC" "$CU_FILE"
+    nvcc -std=c++17 -I"$CU_DIR" -o "$OUTPUT_EXEC" "$CU_FILE"
 
     if [ $? -ne 0 ]; then
         echo "Compilation of $KERNEL_NAME failed."
