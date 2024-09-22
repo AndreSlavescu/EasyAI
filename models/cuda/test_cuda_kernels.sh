@@ -30,3 +30,7 @@ for CU_FILE in "${CU_FILES[@]}"; do
         exit 1
     fi
 done
+
+if [ -e "$OUTPUT_EXEC" ]; then
+    rm "$OUTPUT_EXEC"
+fi

@@ -3,36 +3,36 @@
 #include <vector>
 #include <random>
 #include <climits>
-#include <omp.h>
 #include "../utils.h"
 
 #define DEBUG 0
-#define PROFILING 1
+#define PROFILING 0
 
-void transpose_nxn_baseline(
+void transpose_nxm_baseline(
     float* src, 
     float* dst, 
-    int n
+    int n,
+    int m
 ) {
     for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < n; ++j) {
-            dst[j * n + i] = src[i * n + j];
+        for (int j = 0; j < m; ++j) {
+            dst[j * n + i] = src[i * m + j];
         }
     }
 }
 
-void transpose_nxn_avx2_128bit(
+void transpose_nxm_avx2_128bit(
     float* src, 
     float* dst, 
-    int n
+    int n,
+    int m
 ) {
-    #pragma omp parallel for collapse(2)
     for (int i = 0; i < n; i += 4) {
-        for (int j = 0; j < n; j += 4) {
-            __m128 row1 = _mm_load_ps(&src[i * n + j]);
-            __m128 row2 = _mm_load_ps(&src[(i + 1) * n + j]);
-            __m128 row3 = _mm_load_ps(&src[(i + 2) * n + j]);
-            __m128 row4 = _mm_load_ps(&src[(i + 3) * n + j]);
+        for (int j = 0; j < m; j += 4) {
+            __m128 row1 = _mm_load_ps(&src[i * m + j]);
+            __m128 row2 = _mm_load_ps(&src[(i + 1) * m + j]);
+            __m128 row3 = _mm_load_ps(&src[(i + 2) * m + j]);
+            __m128 row4 = _mm_load_ps(&src[(i + 3) * m + j]);
 
             _MM_TRANSPOSE4_PS(row1, row2, row3, row4);
 
@@ -44,22 +44,22 @@ void transpose_nxn_avx2_128bit(
     }
 }
 
-void transpose_nxn_avx2_256bit_kernel1(
+void transpose_nxm_avx2_256bit_kernel1(
     const float* __restrict__ src, 
     float* dst, 
-    int n
+    int n,
+    int m
 ) {
-    #pragma omp parallel for collapse(2)
     for (int i = 0; i < n; i += 8) {
-        for (int j = 0; j < n; j += 8) {
-            __m256 row0 = _mm256_loadu_ps(&src[i * n + j]);
-            __m256 row1 = _mm256_loadu_ps(&src[(i + 1) * n + j]);
-            __m256 row2 = _mm256_loadu_ps(&src[(i + 2) * n + j]);
-            __m256 row3 = _mm256_loadu_ps(&src[(i + 3) * n + j]);
-            __m256 row4 = _mm256_loadu_ps(&src[(i + 4) * n + j]);
-            __m256 row5 = _mm256_loadu_ps(&src[(i + 5) * n + j]);
-            __m256 row6 = _mm256_loadu_ps(&src[(i + 6) * n + j]);
-            __m256 row7 = _mm256_loadu_ps(&src[(i + 7) * n + j]);
+        for (int j = 0; j < m; j += 8) {
+            __m256 row0 = _mm256_loadu_ps(&src[i * m + j]);
+            __m256 row1 = _mm256_loadu_ps(&src[(i + 1) * m + j]);
+            __m256 row2 = _mm256_loadu_ps(&src[(i + 2) * m + j]);
+            __m256 row3 = _mm256_loadu_ps(&src[(i + 3) * m + j]);
+            __m256 row4 = _mm256_loadu_ps(&src[(i + 4) * m + j]);
+            __m256 row5 = _mm256_loadu_ps(&src[(i + 5) * m + j]);
+            __m256 row6 = _mm256_loadu_ps(&src[(i + 6) * m + j]);
+            __m256 row7 = _mm256_loadu_ps(&src[(i + 7) * m + j]);
 
             __m256 __t0, __t1, __t2, __t3, __t4, __t5, __t6, __t7;
             __m256 __tt0, __tt1, __tt2, __tt3, __tt4, __tt5, __tt6, __tt7;
@@ -108,27 +108,27 @@ Tested on i7-6800k @ 3.40GHz
     kernel1 speedup against baseline: ~5.9x
     kernel2 speedup against baseline: ~6.2x
 */
-void transpose_nxn_avx2_256bit_kernel2(
+void transpose_nxm_avx2_256bit_kernel2(
     const float* __restrict__ src, 
     float* dst, 
-    int n
+    int n,
+    int m
 ) {
     const int tile_size = 16;
 
-    #pragma omp parallel for collapse(2)
     for (int i = 0; i < n; i += tile_size) {
-        for (int j = 0; j < n; j += tile_size) {
+        for (int j = 0; j < m; j += tile_size) {
             for (int ti = 0; ti < tile_size; ti += 8) {
                 for (int tj = 0; tj < tile_size; tj += 8) {
-                    if (i + ti + 7 < n && j + tj + 7 < n) {
-                        __m256 row0 = _mm256_loadu_ps(&src[(i + ti) * n + (j + tj)]);
-                        __m256 row1 = _mm256_loadu_ps(&src[(i + ti + 1) * n + (j + tj)]);
-                        __m256 row2 = _mm256_loadu_ps(&src[(i + ti + 2) * n + (j + tj)]);
-                        __m256 row3 = _mm256_loadu_ps(&src[(i + ti + 3) * n + (j + tj)]);
-                        __m256 row4 = _mm256_loadu_ps(&src[(i + ti + 4) * n + (j + tj)]);
-                        __m256 row5 = _mm256_loadu_ps(&src[(i + ti + 5) * n + (j + tj)]);
-                        __m256 row6 = _mm256_loadu_ps(&src[(i + ti + 6) * n + (j + tj)]);
-                        __m256 row7 = _mm256_loadu_ps(&src[(i + ti + 7) * n + (j + tj)]);
+                    if (i + ti + 7 < n && j + tj + 7 < m) {
+                        __m256 row0 = _mm256_loadu_ps(&src[(i + ti) * m + (j + tj)]);
+                        __m256 row1 = _mm256_loadu_ps(&src[(i + ti + 1) * m + (j + tj)]);
+                        __m256 row2 = _mm256_loadu_ps(&src[(i + ti + 2) * m + (j + tj)]);
+                        __m256 row3 = _mm256_loadu_ps(&src[(i + ti + 3) * m + (j + tj)]);
+                        __m256 row4 = _mm256_loadu_ps(&src[(i + ti + 4) * m + (j + tj)]);
+                        __m256 row5 = _mm256_loadu_ps(&src[(i + ti + 5) * m + (j + tj)]);
+                        __m256 row6 = _mm256_loadu_ps(&src[(i + ti + 6) * m + (j + tj)]);
+                        __m256 row7 = _mm256_loadu_ps(&src[(i + ti + 7) * m + (j + tj)]);
 
                         __m256 __t0, __t1, __t2, __t3, __t4, __t5, __t6, __t7;
                         __m256 __tt0, __tt1, __tt2, __tt3, __tt4, __tt5, __tt6, __tt7;
@@ -182,35 +182,34 @@ Original Order:
   0  1  2  3
   4  5  6  7
   8  9 10 11
-  12 13 14 15
  
 Morton Order:
   0  1  4  5
   2  3  6  7
   8  9 12 13
-  10 11 14 15
- 
+
 In the original order, accessing elements sequentially in row-major, which is not optimal for cache access.
 By processing tiles in column-major, cache lines can be more effecitvely used, which results in fewer cache misses.
 
 Cache access pattern:
-0 -> 1 -> 4 -> 5 -> 2 -> 3 -> 6 -> 7 -> 8 -> 9 -> 12 -> 13 -> 10 -> 11 -> 14 -> 15
+0 -> 1 -> 4 -> 5 -> 2 -> 3 -> 6 -> 7 -> 8 -> 9 -> 12 -> 13
 
 Tested on i7-6800k @ 3.40GHz
     kernel1 speedup against baseline: ~5.9x
     kernel2 speedup against baseline: ~6.2x
-    kernel3 speedup against baseline: ~6.6x
+    kernel3 speedup against baseline: ~6.7x
 */
-void transpose_nxn_avx2_256bit_kernel3(
+void transpose_nxm_avx2_256bit_kernel3(
     const float* __restrict__ src,
     float* __restrict__ dst, 
-    int n
+    int n,
+    int m
 ) {
     const int tile_size = 16;
-    int num_tiles = (n + tile_size - 1) / tile_size;
-    int total_tiles = num_tiles * num_tiles;
+    int num_tiles_n = (n + tile_size - 1) / tile_size;
+    int num_tiles_m = (m + tile_size - 1) / tile_size;
+    int total_tiles = num_tiles_n * num_tiles_m;
 
-    #pragma omp parallel for
     for (int tile_index = 0; tile_index < total_tiles; ++tile_index) {
         unsigned int x = 0, y = 0;
         unsigned int t = tile_index;
@@ -221,19 +220,18 @@ void transpose_nxn_avx2_256bit_kernel3(
         int i = x * tile_size;
         int j = y * tile_size;
 
-        if (i < n && j < n) {
-            #pragma omp parallel for coalesce(2)
+        if (i < n && j < m) {
             for (int ti = 0; ti < tile_size; ti += 8) {
                 for (int tj = 0; tj < tile_size; tj += 8) {
-                    if (i + ti + 7 < n && j + tj + 7 < n) {
-                        __m256 row0 = _mm256_loadu_ps(&src[(i + ti) * n + (j + tj)]);
-                        __m256 row1 = _mm256_loadu_ps(&src[(i + ti + 1) * n + (j + tj)]);
-                        __m256 row2 = _mm256_loadu_ps(&src[(i + ti + 2) * n + (j + tj)]);
-                        __m256 row3 = _mm256_loadu_ps(&src[(i + ti + 3) * n + (j + tj)]);
-                        __m256 row4 = _mm256_loadu_ps(&src[(i + ti + 4) * n + (j + tj)]);
-                        __m256 row5 = _mm256_loadu_ps(&src[(i + ti + 5) * n + (j + tj)]);
-                        __m256 row6 = _mm256_loadu_ps(&src[(i + ti + 6) * n + (j + tj)]);
-                        __m256 row7 = _mm256_loadu_ps(&src[(i + ti + 7) * n + (j + tj)]);
+                    if (i + ti + 7 < n && j + tj + 7 < m) {
+                        __m256 row0 = _mm256_loadu_ps(&src[(i + ti) * m + (j + tj)]);
+                        __m256 row1 = _mm256_loadu_ps(&src[(i + ti + 1) * m + (j + tj)]);
+                        __m256 row2 = _mm256_loadu_ps(&src[(i + ti + 2) * m + (j + tj)]);
+                        __m256 row3 = _mm256_loadu_ps(&src[(i + ti + 3) * m + (j + tj)]);
+                        __m256 row4 = _mm256_loadu_ps(&src[(i + ti + 4) * m + (j + tj)]);
+                        __m256 row5 = _mm256_loadu_ps(&src[(i + ti + 5) * m + (j + tj)]);
+                        __m256 row6 = _mm256_loadu_ps(&src[(i + ti + 6) * m + (j + tj)]);
+                        __m256 row7 = _mm256_loadu_ps(&src[(i + ti + 7) * m + (j + tj)]);
 
                         __m256 __t0 = _mm256_unpacklo_ps(row0, row1);
                         __m256 __t1 = _mm256_unpackhi_ps(row0, row1);
@@ -282,14 +280,19 @@ int main() {
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> dis(0.0f, 1.0f);
 
-    const std::vector<int> test_sizes = {128, 256, 512, 1024, 2048, 4096};
+    std::vector<int> test_sizes(5);
+    for (size_t i = 0; i < test_sizes.size(); i++) {
+        test_sizes[i] = pow(2, (5 + i));  
+    }
+
     for (const int n : test_sizes) {
-        std::vector<float> src(n * n);
-        std::vector<float> dst_standard(n * n);
-        std::vector<float> dst_avx2_128bit(n * n);
-        std::vector<float> dst_avx2_256bit_kernel1(n * n);
-        std::vector<float> dst_avx2_256bit_kernel2(n * n);
-        std::vector<float> dst_avx2_256bit_kernel3(n * n);
+        int m = n / 2;
+        std::vector<float> src(n * m);
+        std::vector<float> dst_standard(n * m);
+        std::vector<float> dst_avx2_128bit(n * m);
+        std::vector<float> dst_avx2_256bit_kernel1(n * m);
+        std::vector<float> dst_avx2_256bit_kernel2(n * m);
+        std::vector<float> dst_avx2_256bit_kernel3(n * m);
 
         for (float& val : src) {
             val = dis(gen);
@@ -298,33 +301,33 @@ int main() {
         if (PROFILING) {
             utils::compare_performance(
                 "Standard transpose", 
-                [&](){ transpose_nxn_baseline(src.data(), dst_standard.data(), n); },
+                [&](){ transpose_nxm_baseline(src.data(), dst_standard.data(), n, m); },
                 "AVX2 128-bit transpose", 
-                [&](){ transpose_nxn_avx2_128bit(src.data(), dst_avx2_128bit.data(), n); },
+                [&](){ transpose_nxm_avx2_128bit(src.data(), dst_avx2_128bit.data(), n, m); },
                 100
             );
 
             utils::compare_performance(
                 "Standard transpose", 
-                [&](){ transpose_nxn_baseline(src.data(), dst_standard.data(), n); },
+                [&](){ transpose_nxm_baseline(src.data(), dst_standard.data(), n, m); },
                 "AVX2 256-bit transpose kernel1", 
-                [&](){ transpose_nxn_avx2_256bit_kernel1(src.data(), dst_avx2_256bit_kernel1.data(), n); },
+                [&](){ transpose_nxm_avx2_256bit_kernel1(src.data(), dst_avx2_256bit_kernel1.data(), n, m); },
                 100
             );
 
             utils::compare_performance(
                 "Standard transpose", 
-                [&](){ transpose_nxn_baseline(src.data(), dst_standard.data(), n); },
+                [&](){ transpose_nxm_baseline(src.data(), dst_standard.data(), n, m); },
                 "AVX2 256-bit transpose kernel2", 
-                [&](){ transpose_nxn_avx2_256bit_kernel2(src.data(), dst_avx2_256bit_kernel2.data(), n); },
+                [&](){ transpose_nxm_avx2_256bit_kernel2(src.data(), dst_avx2_256bit_kernel2.data(), n, m); },
                 100
             );
 
             utils::compare_performance(
                 "Standard transpose", 
-                [&](){ transpose_nxn_baseline(src.data(), dst_standard.data(), n); },
+                [&](){ transpose_nxm_baseline(src.data(), dst_standard.data(), n, m); },
                 "AVX2 256-bit transpose kernel3", 
-                [&](){ transpose_nxn_avx2_256bit_kernel3(src.data(), dst_avx2_256bit_kernel3.data(), n); },
+                [&](){ transpose_nxm_avx2_256bit_kernel3(src.data(), dst_avx2_256bit_kernel3.data(), n, m); },
                 100
             );
         }
