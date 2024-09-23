@@ -8,7 +8,7 @@
 #include <thrust/tuple.h>
 #include <thrust/scan.h>
 #include <iostream>
-#include "../utils.h"
+#include "../cuda_utils.h"
 
 /*
     BM25 is a ranking function used by search engines to rank documents in their search results.
@@ -23,7 +23,7 @@
 */
 
 #define DEBUG 0
-#define PROFILING 1
+#define PROFILING 0
 
 void bm25_score_cpu(
     const float *query_weights,

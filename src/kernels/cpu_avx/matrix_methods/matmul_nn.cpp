@@ -3,7 +3,7 @@
 #include <vector>
 #include <random>
 #include <climits>
-#include "../utils.h"
+#include "../cpu_avx_utils.h"
 
 #define DEBUG 0
 #define PROFILING 0
