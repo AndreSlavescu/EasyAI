@@ -13,7 +13,7 @@ fi
 for CPP_FILE in "${CPP_FILES[@]}"; do
     KERNEL_NAME=$(basename "$CPP_FILE" .cpp)
     echo "Compiling C++ file: $KERNEL_NAME"
-    g++ -std=c++17 -mavx2 -I"$CPP_DIR" -o "$OUTPUT_EXEC" "$CPP_FILE"
+    g++ -std=c++17 -mavx2 -march=native -I"$CPP_DIR" -o "$OUTPUT_EXEC" "$CPP_FILE"
 
     if [ $? -ne 0 ]; then
         echo "Compilation of $KERNEL_NAME failed."
