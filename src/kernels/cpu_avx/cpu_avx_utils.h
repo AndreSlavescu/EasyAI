@@ -23,6 +23,10 @@ double measure_performance(
     return static_cast<double>(duration.count()) / num_runs;
 }
 
+bool is_equal(float a, float b, float epsilon = 1e-5) {
+    return fabs(a - b) < epsilon;
+}
+
 template<typename T>
 bool check_correctness(
     const std::vector<T>& expected, 
@@ -35,7 +39,7 @@ bool check_correctness(
     }
 
     for (size_t i = 0; i < expected.size(); ++i) {
-        if (std::abs(expected[i] - actual[i]) > epsilon) {
+        if (!is_equal(expected[i], actual[i], epsilon=epsilon)) {
             std::cerr << "Mismatch at index " << i << ": expected " << expected[i] << ", got " << actual[i] << std::endl;
             return false;
         }

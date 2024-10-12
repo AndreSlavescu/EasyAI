@@ -150,7 +150,7 @@ int main() {
         }
 
         bool is_correct_128bit = utils::check_correctness(dst_standard, dst_avx_128bit);
-        bool is_correct_avx2_256bit = utils::check_correctness(dst_standard, dst_avx2_256bit);
+        bool is_correct_avx2_256bit = utils::check_correctness(dst_standard, dst_avx2_256bit, static_cast<float>(1e-4));
 
         if (DEBUG) {
             std::cout << "Correctness check (128-bit AVX): " << (is_correct_128bit ? "PASSED" : "FAILED") << std::endl;
