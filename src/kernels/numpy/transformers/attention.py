@@ -78,3 +78,65 @@ def multihead_attention(
     output = concatenated_heads @ W_O
     return output
 
+
+"""
+Linear Attention:
+
+A more efficient variant of attention that reduces the quadratic memory complexity to linear.
+Instead of computing the full attention matrix, it uses the associative property of matrix multiplication
+to compute attention in linear time and memory.
+
+Formula:
+    Let Q be the Query matrix, K be the Key matrix, V be the Value matrix
+    LinearAttention(Q,K,V) = ϕ(Q) @ (ϕ(K)^T @ V) / (ϕ(Q) @ ϕ(K)^T @ 1)
+    where ϕ is a feature map (here using elu(x) + 1)
+
+This provides O(N) complexity instead of O(N^2) of standard attention.
+"""
+def linear_attention(
+    Q: np.ndarray,
+    K: np.ndarray,
+    V: np.ndarray,
+    eps: float = 1e-6
+) -> np.ndarray:
+    def phi(x):
+        return np.maximum(0, x) + np.minimum(0, np.exp(x) - 1) + 1
+    
+    Q_feat = phi(Q) 
+    K_feat = phi(K)
+
+    KV = np.einsum('bsd,bsv->bdv', K_feat, V)
+    Z = np.einsum('bsd,bs->bd', K_feat, np.ones_like(K_feat[:,:,0]))
+    attention = np.einsum('bqd,bdv->bqv', Q_feat, KV)
+    normalizer = np.einsum('bqd,bd->bq', Q_feat, Z)
+    output = attention / (normalizer[..., None] + eps)
+    
+    return output
+
+if __name__ == "__main__":
+    batch_size, seq_len, d_model = 2, 4, 8
+    num_heads = 2
+    d_k = d_model // num_heads
+
+    Q = np.random.randn(batch_size, seq_len, d_model)
+    K = np.random.randn(batch_size, seq_len, d_model)
+    V = np.random.randn(batch_size, seq_len, d_model)
+
+    expected_shape = (batch_size, seq_len, d_model)
+
+    mha_output = multihead_attention(Q, K, V, d_model, num_heads)
+    la_output = linear_attention(Q, K, V)
+
+    np.testing.assert_equal(mha_output.shape, expected_shape)
+    np.testing.assert_equal(la_output.shape, expected_shape)
+    
+    np.testing.assert_array_less(np.abs(mha_output), np.inf)
+    np.testing.assert_array_less(np.abs(la_output), np.inf)
+    
+    np.testing.assert_(not np.isnan(mha_output).any())
+    np.testing.assert_(not np.isnan(la_output).any())
+
+    print("All tests passed successfully!")
+
+
+
