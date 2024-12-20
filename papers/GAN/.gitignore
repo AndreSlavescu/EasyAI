@@ -1,0 +1,6 @@
+cifar10_data
+cifar10_download.tar.gz
+discriminator_weights.bin
+generator_weights.bin
+sample.png
+gan
