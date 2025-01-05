@@ -1,8 +1,13 @@
 #!/bin/bash
 set -e
 
-CPP_DIR="$(dirname "$0")"
+CPP_DIR="$(dirname "$0")/sorting"
 OUTPUT_EXEC="test_arm_neon_kernels"
+
+export CC=/usr/local/opt/llvm/bin/clang
+export CXX=/usr/local/opt/llvm/bin/clang++
+
+ARCH_FLAGS="-O3 -arch arm64"
 
 CPP_FILES=("$CPP_DIR"/*.cpp)
 if [ ! -e "${CPP_FILES[0]}" ]; then
@@ -14,7 +19,10 @@ for CPP_FILE in "${CPP_FILES[@]}"; do
     KERNEL_NAME=$(basename "$CPP_FILE" .cpp)
     echo "Compiling C++ file: $KERNEL_NAME"
     
-    g++ -std=c++17 -march=armv8-a+simd -O3 -I"$CPP_DIR" -o "$OUTPUT_EXEC" "$CPP_FILE"
+    $CXX -std=c++17 \
+        $ARCH_FLAGS \
+        -I"$CPP_DIR" \
+        -o "$OUTPUT_EXEC" "$CPP_FILE"
 
     if [ $? -ne 0 ]; then
         echo "Compilation of $KERNEL_NAME failed."
