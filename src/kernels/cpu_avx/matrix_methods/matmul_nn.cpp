@@ -129,17 +129,17 @@ int main() {
 
         if (PROFILING) {
             utils::compare_performance(
-                "Standard sgemm", 
+                "Standard matmul", 
                 [&](){ matmul_nxnxn_baseline(matrix_a.data(), matrix_b.data(), dst_standard.data(), n); },
-                "AVX 128-bit sgemm", 
+                "AVX 128-bit matmul", 
                 [&](){ matmul_nxnxn_avx_128bit(matrix_a.data(), matrix_b.data(), dst_avx_128bit.data(), n); },
                 100
             );
 
             utils::compare_performance(
-                "Standard sgemm", 
+                "Standard matmul", 
                 [&](){ matmul_nxnxn_baseline(matrix_a.data(), matrix_b.data(), dst_standard.data(), n); },
-                "AVX2 256-bit sgemm", 
+                "AVX2 256-bit matmul", 
                 [&](){ matmul_nxnxn_avx2_256bit(matrix_a.data(), matrix_b.data(), dst_avx2_256bit.data(), n); },
                 100
             );

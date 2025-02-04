@@ -8,7 +8,7 @@
 #define DEBUG 0
 #define PROFILING 0
 
-void sgemm_nxkxm_baseline(
+void matmul_nxkxm_baseline(
     float* a, 
     float* b, 
     float* c,
@@ -25,7 +25,7 @@ void sgemm_nxkxm_baseline(
     }
 }
 
-void sgemm_nxkxm_avx_128bit(
+void matmul_nxkxm_avx_128bit(
     float* a,
     float* b,
     float* c, 
@@ -57,7 +57,7 @@ void sgemm_nxkxm_avx_128bit(
     }
 }
 
-void sgemm_nxkxm_avx2_256bit(
+void matmul_nxkxm_avx2_256bit(
     float* a,
     float* b,
     float* c, 
@@ -133,18 +133,18 @@ int main() {
 
         if (PROFILING) {
             utils::compare_performance(
-                "Standard sgemm", 
-                [&](){ sgemm_nxkxm_baseline(matrix_a.data(), matrix_b.data(), dst_standard.data(), n, m); },
-                "AVX 128-bit sgemm", 
-                [&](){ sgemm_nxkxm_avx_128bit(matrix_a.data(), matrix_b.data(), dst_avx_128bit.data(), n, m); },
+                "Standard matmul", 
+                [&](){ matmul_nxkxm_baseline(matrix_a.data(), matrix_b.data(), dst_standard.data(), n, m); },
+                "AVX 128-bit matmul", 
+                [&](){ matmul_nxkxm_avx_128bit(matrix_a.data(), matrix_b.data(), dst_avx_128bit.data(), n, m); },
                 100
             );
 
             utils::compare_performance(
-                "Standard sgemm", 
-                [&](){ sgemm_nxkxm_baseline(matrix_a.data(), matrix_b.data(), dst_standard.data(), n, m); },
-                "AVX2 256-bit sgemm", 
-                [&](){ sgemm_nxkxm_avx2_256bit(matrix_a.data(), matrix_b.data(), dst_avx2_256bit.data(), n, m); },
+                "Standard matmul", 
+                [&](){ matmul_nxkxm_baseline(matrix_a.data(), matrix_b.data(), dst_standard.data(), n, m); },
+                "AVX2 256-bit matmul", 
+                [&](){ matmul_nxkxm_avx2_256bit(matrix_a.data(), matrix_b.data(), dst_avx2_256bit.data(), n, m); },
                 100
             );
         }
