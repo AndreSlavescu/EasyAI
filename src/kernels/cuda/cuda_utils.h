@@ -6,8 +6,7 @@
 
 // kernel launch param helpers
 #define MAX_THREADS_PER_BLOCK 1024
-#define CEIL(a, b) (((a) + (b) - 1) / (b))
-#define DIV_CEIL(a, b) (((a) % (b) == 0) ? (a) / (b) : (a) / (b) + 1)
+#define CEIL_DIV(a, b) (((a) + (b) - 1) / (b))
 
 // Basic CUDA_ASSERT macro
 #define CUDA_ASSERT(condition) \
@@ -17,6 +16,17 @@
             fprintf(stderr, "CUDA error at %s:%d code=%d(%s) \"%s\"\n", \
                     __FILE__, __LINE__, static_cast<unsigned int>(error), \
                     cudaGetErrorString(error), #condition); \
+            cudaDeviceReset(); \
+            exit(EXIT_FAILURE); \
+        } \
+    } while (0)
+
+#define CUBLAS_ASSERT(condition) \
+    do { \
+        cublasStatus_t status = condition; \
+        if (status != CUBLAS_STATUS_SUCCESS) { \
+            fprintf(stderr, "cuBLAS error at %s:%d code=%d\n", \
+                    __FILE__, __LINE__, static_cast<int>(status)); \
             cudaDeviceReset(); \
             exit(EXIT_FAILURE); \
         } \
