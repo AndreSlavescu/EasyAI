@@ -9,8 +9,8 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-CUDA_FILES=("$KERNEL_DIR"/*.cu)
-if [ ! -e "${CUDA_FILES[0]}" ]; then
+mapfile -t CUDA_FILES < <(find "$KERNEL_DIR" -type f -name "*.cu")
+if [ ${#CUDA_FILES[@]} -eq 0 ]; then
     echo "No .cu files found in the directory: $KERNEL_DIR"
     exit 1
 fi
@@ -22,8 +22,9 @@ for cuda_file in "${CUDA_FILES[@]}"; do
     kernel_name="${filename%.cu}"
     ptx_base="${kernel_name%_driver}"
     ptx_name="${ptx_base}.ptx"
+    ptx_dir=$(dirname "$cuda_file")
     
-    cp "$KERNEL_DIR/$ptx_name" "$PTX_OUTPUT_DIR/$ptx_name"
+    cp "$ptx_dir/$ptx_name" "$PTX_OUTPUT_DIR/$ptx_name"
     
     echo "Using PTX file: $ptx_name"
     

@@ -1,0 +1,74 @@
+.version 7.5
+.target sm_80 // targeting RTX 3090
+.address_size 64
+
+/*
+Cumulative Sum (Prefix Sum / Scan) Kernel for a Warp of 32 elements
+
+This kernel assumes the warp size is 32. Each thread loads one element from a global
+input array, performs a cumulative sum (inclusive) across the warp using shuffle
+operations, and writes the result to a global output array.
+
+Args:
+    - input:  .u64 pointer parameter to the input array of 32 elements (each float, 4 bytes) in global memory.
+    - output: .u64 pointer parameter to the output array for cumulative sums.
+*/
+.visible .entry warpPrefixSum(
+    .param .u64 input,
+    .param .u64 output
+)
+{
+    .reg .u32   %tid;
+    .reg .u32   %imm4;
+    .reg .u64   %inputPtr;
+    .reg .u64   %outputPtr;
+    .reg .u64   %offset;
+    .reg .f32   %value;
+    .reg .f32   %sum;
+    .reg .f32   %temp;
+    .reg .pred  %p0;
+
+    // Get thread lane ID within the warp.
+    mov.u32    %tid, %laneid;
+
+    // Load the input and output pointer parameters.
+    ld.param.u64   %inputPtr, [input];
+    ld.param.u64   %outputPtr, [output];
+
+    // Load constant 4 into register %imm4 (number of bytes in a float).
+    mov.u32 %imm4, 4;
+
+    // Compute the byte offset within the array: offset = tid * 4.
+    mul.lo.u32    %offset, %tid, %imm4;
+    cvt.u64.u32   %offset, %offset;
+
+    // Load the input element (float) at the computed index.
+    ld.global.f32  %value, [%inputPtr + %offset];
+    mov.f32        %sum, %value;
+
+    // Compute cumulative sum using warp-level synchronized shuffle operations.
+    shfl.up.sync.b32   %temp, %sum, 1, 32;
+    setp.ge.u32        %p0, %tid, 1;
+    @%p0 add.f32      %sum, %sum, %temp;
+
+    shfl.up.sync.b32   %temp, %sum, 2, 32;
+    setp.ge.u32        %p0, %tid, 2;
+    @%p0 add.f32      %sum, %sum, %temp;
+
+    shfl.up.sync.b32   %temp, %sum, 4, 32;
+    setp.ge.u32        %p0, %tid, 4;
+    @%p0 add.f32      %sum, %sum, %temp;
+
+    shfl.up.sync.b32   %temp, %sum, 8, 32;
+    setp.ge.u32        %p0, %tid, 8;
+    @%p0 add.f32      %sum, %sum, %temp;
+
+    shfl.up.sync.b32   %temp, %sum, 16, 32;
+    setp.ge.u32        %p0, %tid, 16;
+    @%p0 add.f32      %sum, %sum, %temp;
+
+    // Store the cumulative sum result back to global memory.
+    st.global.f32  [%outputPtr + %offset], %sum;
+
+    ret;
+}
