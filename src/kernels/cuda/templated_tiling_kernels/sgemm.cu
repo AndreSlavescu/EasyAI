@@ -6,7 +6,7 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
-#include "../cuda_template_utils.cuh"
+#include "../cuda_tiling_template_utils.cuh"
 
 constexpr int TILE_M = 16;
 constexpr int TILE_N = 16;
