@@ -47,9 +47,10 @@ __global__ void gemmTensorCore(
         - vectorize loads into shared memory
             - pack 4 fp16 values into a half4 vector
             - better for bandwidth, because we write to shared memory in bursts
-    2. run wmma_m16n16k16(...) on 4 sub-tiles from the shared memory. 
+    2. run mma_m16n16k16(...) on 4 sub-tiles from the shared memory. 
         - 1024 / (16 * 16) -> 4 sub-tiles.
-        - schedule the wmma calls in sequence on each sub-tile.
+        - within each mma_m16n16k16 call there is a 2 stage mma computation on m16n8k16 sub-tiles
+        - schedule the mma calls in sequence on each sub-tile.
             - can make use of cuda::pipeline to schedule each wmma call on the seperate sub-tiles
             - each thread within the warp has 8 units of work from the 16x16 sub-tile
     */
