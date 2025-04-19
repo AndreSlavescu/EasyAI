@@ -1,9 +1,15 @@
 #pragma once
 
+#include <cuda.h>
+#include <cudaTypedefs.h>
+#include <cuda/barrier>
+#include <cublas_v2.h>
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 #include <cuda_bf16.h>
 #include <cstdint>
+
+typedef __nv_bfloat16 bf16;
 
 /*
 Synchronization and Barrier Device Functions
@@ -39,7 +45,7 @@ __device__ __forceinline__ uint32_t compute_swizzle_base_offset(uint32_t pattern
 }
 
 template <typename DType>
-__device__ uint64_t make_smem_desc_fp32(DType* generic_ptr) {
+__device__ uint64_t make_smem_desc(DType* generic_ptr) {
     uint32_t smem_addr = static_cast<uint32_t>(
         __cvta_generic_to_shared(generic_ptr)
     ); // converts generic address to shared memory address
@@ -58,63 +64,176 @@ __device__ uint64_t make_smem_desc_fp32(DType* generic_ptr) {
 (Warp) Matrix Multiply Accumulate Device Functions
 */
 
-__device__ __forceinline__ void wmma_m16n16k16_f16(
+__device__ __forceinline__ void mma_m16n16k16_f16(
     float d_frag[8], // each thread's fragment from the 16x16 output matrix
     const half* a_frag,
     const half* b_frag
 ) {
+    // vector registers for matrix fragments
+    uint32_t a_reg[4];  // 4 registers for matrix A fragment
+    uint32_t b_reg[4];  // 4 registers for matrix B fragment
+    
+    uint32_t a_ptr = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(a_frag));
+    uint32_t b_ptr = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(b_frag));
+    
+    // load matrix A fragment from shared memory
     asm volatile(
-        "{\n"
-        "wmma.mma.m16n16k16.row.row.f32.f16.f16.f32 "
-        "{%0,%1,%2,%3,%4,%5,%6,%7},"
-        " %8," // a_frag
-        " %9;\n" // b_frag
-        "}\n"
-        : "+f"(d_frag[0]), "+f"(d_frag[1]), "+f"(d_frag[2]), "+f"(d_frag[3]),
-          "+f"(d_frag[4]), "+f"(d_frag[5]), "+f"(d_frag[6]), "+f"(d_frag[7])
-        : "r"(a_frag), "r"(b_frag)
+        "ldmatrix.sync.aligned.m8n8.x4.shared.b16 {%0,%1,%2,%3}, [%4];\n"
+        : "=r"(a_reg[0]), "=r"(a_reg[1]), "=r"(a_reg[2]), "=r"(a_reg[3])
+        : "r"(a_ptr)
+    );
+    
+    // load matrix B fragment from shared memory
+    asm volatile(
+        "ldmatrix.sync.aligned.m8n8.x4.shared.b16 {%0,%1,%2,%3}, [%4];\n"
+        : "=r"(b_reg[0]), "=r"(b_reg[1]), "=r"(b_reg[2]), "=r"(b_reg[3])
+        : "r"(b_ptr)
+    );
+    
+    // first 16x8 matrix multiplication
+    asm volatile(
+        "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 "
+        "{%0,%1,%2,%3}, "
+        "{%4,%5,%6,%7}, "
+        "{%8,%9}, "
+        "{%10,%11,%12,%13};\n"
+        : "=f"(d_frag[0]), "=f"(d_frag[1]), "=f"(d_frag[2]), "=f"(d_frag[3])
+        : "r"(a_reg[0]), "r"(a_reg[1]), "r"(a_reg[2]), "r"(a_reg[3]),
+          "r"(b_reg[0]), "r"(b_reg[1]),
+          "f"(d_frag[0]), "f"(d_frag[1]), "f"(d_frag[2]), "f"(d_frag[3])
+    );
+    
+    // load second part of matrix B
+    uint32_t b_ptr_offset = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(b_frag + 8));
+    asm volatile(
+        "ldmatrix.sync.aligned.m8n8.x4.shared.b16 {%0,%1,%2,%3}, [%4];\n"
+        : "=r"(b_reg[0]), "=r"(b_reg[1]), "=r"(b_reg[2]), "=r"(b_reg[3])
+        : "r"(b_ptr_offset)
+    );
+    
+    // second 16x8 matrix multiplication
+    asm volatile(
+        "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 "
+        "{%0,%1,%2,%3}, "
+        "{%4,%5,%6,%7}, "
+        "{%8,%9}, "
+        "{%10,%11,%12,%13};\n"
+        : "=f"(d_frag[4]), "=f"(d_frag[5]), "=f"(d_frag[6]), "=f"(d_frag[7])
+        : "r"(a_reg[0]), "r"(a_reg[1]), "r"(a_reg[2]), "r"(a_reg[3]),
+          "r"(b_reg[2]), "r"(b_reg[3]),
+          "f"(d_frag[4]), "f"(d_frag[5]), "f"(d_frag[6]), "f"(d_frag[7])
     );
 }
 
-__device__ __forceinline__ void wmma_m16n16k16_bf16(
+__device__ __forceinline__ void mma_m16n16k16_bf16(
     float d_frag[8], // each thread's fragment from the 16x16 output matrix
     const bf16* a_frag,
     const bf16* b_frag
 ) {
+    // vector registers for matrix fragments
+    uint32_t a_reg[4];  // 4 registers for matrix A fragment
+    uint32_t b_reg[4];  // 4 registers for matrix B fragment
+    
+    uint32_t a_ptr = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(a_frag));
+    uint32_t b_ptr = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(b_frag));
+    
+    // load matrix A fragment from shared memory
     asm volatile(
-        "{\n"
-        "wmma.mma.m16n16k16.row.row.f32.bf16.bf16.f32 "
-        "{%0,%1,%2,%3,%4,%5,%6,%7},"
-        " %8," // a_frag
-        " %9;\n" // b_frag
-        "}\n"
-        : "+f"(d_frag[0]), "+f"(d_frag[1]), "+f"(d_frag[2]), "+f"(d_frag[3]),
-          "+f"(d_frag[4]), "+f"(d_frag[5]), "+f"(d_frag[6]), "+f"(d_frag[7])
-        : "r"(a_frag), "r"(b_frag)
+        "ldmatrix.sync.aligned.m8n8.x4.shared.b16 {%0,%1,%2,%3}, [%4];\n"
+        : "=r"(a_reg[0]), "=r"(a_reg[1]), "=r"(a_reg[2]), "=r"(a_reg[3])
+        : "r"(a_ptr)
+    );
+    
+    // load matrix B fragment from shared memory
+    asm volatile(
+        "ldmatrix.sync.aligned.m8n8.x4.shared.b16 {%0,%1,%2,%3}, [%4];\n"
+        : "=r"(b_reg[0]), "=r"(b_reg[1]), "=r"(b_reg[2]), "=r"(b_reg[3])
+        : "r"(b_ptr)
+    );
+    
+    // first 16x8 matrix multiplication
+    asm volatile(
+        "mma.sync.aligned.m16n8k16.row.col.f32.bf16.bf16.f32 "
+        "{%0,%1,%2,%3}, "
+        "{%4,%5,%6,%7}, "
+        "{%8,%9}, "
+        "{%10,%11,%12,%13};\n"
+        : "=f"(d_frag[0]), "=f"(d_frag[1]), "=f"(d_frag[2]), "=f"(d_frag[3])
+        : "r"(a_reg[0]), "r"(a_reg[1]), "r"(a_reg[2]), "r"(a_reg[3]),
+          "r"(b_reg[0]), "r"(b_reg[1]),
+          "f"(d_frag[0]), "f"(d_frag[1]), "f"(d_frag[2]), "f"(d_frag[3])
+    );
+    
+    // load second part of matrix B
+    uint32_t b_ptr_offset = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(b_frag + 8));
+    asm volatile(
+        "ldmatrix.sync.aligned.m8n8.x4.shared.b16 {%0,%1,%2,%3}, [%4];\n"
+        : "=r"(b_reg[0]), "=r"(b_reg[1]), "=r"(b_reg[2]), "=r"(b_reg[3])
+        : "r"(b_ptr_offset)
+    );
+    
+    // second 16x8 matrix multiplication
+    asm volatile(
+        "mma.sync.aligned.m16n8k16.row.col.f32.bf16.bf16.f32 "
+        "{%0,%1,%2,%3}, "
+        "{%4,%5,%6,%7}, "
+        "{%8,%9}, "
+        "{%10,%11,%12,%13};\n"
+        : "=f"(d_frag[4]), "=f"(d_frag[5]), "=f"(d_frag[6]), "=f"(d_frag[7])
+        : "r"(a_reg[0]), "r"(a_reg[1]), "r"(a_reg[2]), "r"(a_reg[3]),
+          "r"(b_reg[2]), "r"(b_reg[3]),
+          "f"(d_frag[4]), "f"(d_frag[5]), "f"(d_frag[6]), "f"(d_frag[7])
     );
 }
 
 template <typename DType>
-__device__ __forceinline__ void wmma_m16n16k16_bf16(
+__device__ __forceinline__ void mma_m16n16k16(
     float d_frag[8], // each thread's fragment from the 16x16 output matrix
     const DType* a_frag,
     const DType* b_frag
 ) {
-    if (std::is_same<DType, bf16>::value) {
-        wmma_m16n16k16_bf16(
+    if constexpr (std::is_same<DType, bf16>::value) {
+        mma_m16n16k16_bf16(
             d_frag,
             reinterpret_cast<const bf16*>(a_frag),
             reinterpret_cast<const bf16*>(b_frag)
         );
     } 
-    else if (std::is_same<DType, half>::value) {
-        wmma_m16n16k16_f16(
+    else if constexpr (std::is_same<DType, half>::value) {
+        mma_m16n16k16_f16(
             d_frag,
             reinterpret_cast<const half*>(a_frag),
             reinterpret_cast<const half*>(b_frag)
         );
     } 
     else {
-        assert(false && "Unsupported data type for wmma operation");
+        assert(false && "Unsupported data type for mma operation");
+    }
+}
+
+template <typename DType>
+__device__ __forceinline__ void mma_m16n16k16_from_desc(
+    float d_frag[8],
+    uint32_t A_desc,
+    uint32_t B_desc
+) {
+    if constexpr (std::is_same<DType, bf16>::value) {
+        const bf16* a_ptr = reinterpret_cast<const bf16*>(static_cast<uintptr_t>(A_desc));
+        const bf16* b_ptr = reinterpret_cast<const bf16*>(static_cast<uintptr_t>(B_desc));
+        mma_m16n16k16_bf16(
+            d_frag,
+            a_ptr,
+            b_ptr
+        );
+    } else if constexpr (std::is_same<DType, half>::value) {
+        const half* a_ptr = reinterpret_cast<const half*>(static_cast<uintptr_t>(A_desc));
+        const half* b_ptr = reinterpret_cast<const half*>(static_cast<uintptr_t>(B_desc));
+        mma_m16n16k16_f16(
+            d_frag,
+            a_ptr,
+            b_ptr
+        );
+    } else {
+        assert(false && "Unsupported data type for mma operation");
     }
 }

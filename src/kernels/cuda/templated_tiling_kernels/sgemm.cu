@@ -16,7 +16,7 @@ template<int TM, int TN, int TK>
 __global__ void tiledSgemm(
     const float* __restrict__ A,
     const float* __restrict__ B,
-    float* C,
+    float* __restrict__ C,
     int M,
     int N,
     int K

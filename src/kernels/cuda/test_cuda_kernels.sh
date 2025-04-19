@@ -4,6 +4,7 @@ set -e
 SCRIPT_DIR="$(dirname "$0")"
 SEARCH_DIR="$SCRIPT_DIR/search"
 TEMPLATED_DIR="$SCRIPT_DIR/templated_tiling_kernels"
+TENSOR_CORE_DIR="$SCRIPT_DIR/tensor_core_kernels"
 OUTPUT_EXEC="test_cuda_kernels"
 
 GREEN='\033[0;32m'
