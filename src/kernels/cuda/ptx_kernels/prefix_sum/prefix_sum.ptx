@@ -1,0 +1,49 @@
+.version 8.5
+.target sm_86
+.address_size 64
+
+.visible .entry warpPrefixSum(
+    .param .u64 input,
+    .param .u64 output
+)
+{
+    .reg .u32 %tid;
+    .reg .u32 %imm4;
+    .reg .u64 %inputPtr;
+    .reg .u64 %outputPtr;
+    .reg .u64 %offset;
+    .reg .u64 %addr;
+    .reg .f32 %value;
+    .reg .f32 %sum;
+    .reg .f32 %temp;
+    .reg .pred %p0;
+
+    mov.u32 %tid, %laneid;
+    ld.param.u64 %inputPtr, [input];
+    ld.param.u64 %outputPtr, [output];
+    mov.u32 %imm4, 4;
+    mul.wide.u32 %offset, %tid, %imm4;
+    add.u64 %addr, %inputPtr, %offset;
+    ld.global.f32 %value, [%addr];
+    mov.f32 %sum, %value;
+
+    shfl.sync.up.b32 %temp, %sum, 1, 32, 0xffffffff;
+    setp.ge.u32 %p0, %tid, 1;
+    @%p0 add.f32 %sum, %sum, %temp;
+    shfl.sync.up.b32 %temp, %sum, 2, 32, 0xffffffff;
+    setp.ge.u32 %p0, %tid, 2;
+    @%p0 add.f32 %sum, %sum, %temp;
+    shfl.sync.up.b32 %temp, %sum, 4, 32, 0xffffffff;
+    setp.ge.u32 %p0, %tid, 4;
+    @%p0 add.f32 %sum, %sum, %temp;
+    shfl.sync.up.b32 %temp, %sum, 8, 32, 0xffffffff;
+    setp.ge.u32 %p0, %tid, 8;
+    @%p0 add.f32 %sum, %sum, %temp;
+    shfl.sync.up.b32 %temp, %sum, 16, 32, 0xffffffff;
+    setp.ge.u32 %p0, %tid, 16;
+    @%p0 add.f32 %sum, %sum, %temp;
+
+    add.u64 %addr, %outputPtr, %offset;
+    st.global.f32 [%addr], %sum;
+    ret;
+}

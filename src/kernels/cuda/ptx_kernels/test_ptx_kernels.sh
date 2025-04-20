@@ -28,7 +28,7 @@ for cuda_file in "${CUDA_FILES[@]}"; do
     
     echo "Using PTX file: $ptx_name"
     
-    if ! ptxas -arch=sm_80 "$PTX_OUTPUT_DIR/$ptx_name" -o /dev/null; then
+    if ! ptxas --verbose -arch=sm_86 "$PTX_OUTPUT_DIR/$ptx_name" -o /dev/null; then
         echo -e "${RED}PTX validation failed for $ptx_name${NC}"
         exit 1
     fi

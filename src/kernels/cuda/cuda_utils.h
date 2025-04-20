@@ -12,7 +12,16 @@
 // Warp size constant
 #define WARP_SIZE 32
 
-// Basic CUDA_ASSERT macro
+// CUDA_RESULT macro
+#define CHECK_CUDA_RESULT(x) \
+    do { CUresult result = x; if (result != CUDA_SUCCESS) { \
+        const char* error_string; \
+        cuGetErrorString(result, &error_string); \
+        fprintf(stderr, "CUDA Driver Error: %s at %s line %d\n", error_string, __FILE__, __LINE__); \
+        exit(EXIT_FAILURE); \
+    } } while(0)
+
+// CUDA_ASSERT macro
 #define CUDA_ASSERT(condition) \
     do { \
         cudaError_t error = condition; \
@@ -36,7 +45,7 @@
         } \
     } while (0)
 
-// Fill array of type T with random values
+// fill array of type T with random values
 template <typename T>
 void fillArrayRandom(T* vec, size_t size, T min, T max, unsigned int seed = std::random_device{}()) {
     std::mt19937 gen(seed);
@@ -62,7 +71,7 @@ void fillArrayRandom(T* vec, size_t size, T min, T max, unsigned int seed = std:
     }
 }
 
-// Fill vector of type T elements with random values
+// fill vector of type T elements with random values
 template <typename Vector>
 void fillVectorRandom(Vector& vec, typename Vector::value_type min, 
                      typename Vector::value_type max, 
