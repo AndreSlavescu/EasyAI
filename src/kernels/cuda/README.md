@@ -1,13 +1,23 @@
 # CUDA Implementations of popular Models and Algorithms
 
-## '__restrict__' Keyword
+## Sections
 
-CUDA shares the same semantics as C99 for general use of __restrict__,
-which is a hint to the compiler that the pointers are not aliased.
-On NVidia GPUs with Compute Capability 3.5 (Kepler) and higher,
-__restrict__ also suggests to the compiler that global memory loads
-should use the read-only cache.
-See the following link for more details:
-https://developer.nvidia.com/blog/cuda-pro-tip-optimize-pointer-aliasing/
-Also see the following link for __restrict__ definition in the CUDA C/C++ Programming Guide:
-https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#restrict
+### Search Kernels
+
+Search kernels can be found under the [`src/kernels/cuda/search`](src/kernels/cuda/search) directory.
+
+### Tiling Template Library + Kernels
+
+Kernels using the custom tiling library can be found under the [`src/kernels/cuda/templated_tiling_kernels`](src/kernels/cuda/templated_tiling_kernels) directory.
+
+### Tensor Core Kernels
+
+Kernels using tensor core instructions for ampere and earlier can be found under the [`src/kernels/cuda/tensor_core_kernels`](src/kernels/cuda/tensor_core_kernels) directory.
+
+### PTX Kernels
+
+Low-level PTX kernels can be found under the [`src/kernels/cuda/ptx_kernels`](src/kernels/cuda/ptx_kernels) directory. These kernels are written using hand-optimized PTX, with only the necessary CUDA driver code to launch the kernels.
+
+### Simplified CUDA and PTX Strategies
+
+Documentation around common optimization strategies, and particular keywords in CUDA + PTX, can be found under the [`src/kernels/cuda/docs`](src/kernels/cuda/docs) directory.
